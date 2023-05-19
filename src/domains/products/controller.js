@@ -4,7 +4,7 @@ const Product = require("./model");
 //const ApiFeatures = require("../utils/apiFeatures");
 
 
-// Product create for Admin
+// API for product create for Admin
 const createProducts = async (req, res, next) => {
   try {
     const product = new Product(req.body);
@@ -50,18 +50,73 @@ const createProducts = async (req, res, next) => {
 //     });
 //   });
 
-//get all products
+//API for get all products
 const getAllProducts = async (req, res,next) => {
     try {
       const products = await Product.find();
-      res.status(200).json(products);
-    } catch (err) {
-      console.log(err);
+      res.status(200).send(products);
+    } catch (error) {
+      res.status(500).send({
+        message: "Sorry!!!Server Error!!!!!!!!!!",
+        error: error,
+      });
     }
   };
+
+// API For get single product
+const getSingleProduct = async (req, res, next) => {
+  const product = await Product.findById(req.params.id);
+  // if (!product) {
+  //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
+  // }
+  res.status(200).json({
+    success: true,
+    message: "Successfully found product details!!!",
+    product: product,
+  });
+};
+
+//Update product data---------------
+
+const updateProducts = async (req, res, next) => {
+  const productUpdated = await Product.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true, runValidators: true }
+  );
+  // if (!productUpdated) {
+  //   return next(
+  //     new ErrorHandlerClass("Failed to update the product... Not found!!!", 404)
+  //   );
+  // }
+  res.send({
+    success: true,
+    message: "Successfully update product data !!!",
+    data: productUpdated,
+  });
+};
+
+//API for delete specific product data
+
+const deleteProduct = async (req, res, next) => {
+  const product = await Product.findByIdAndDelete(req.params.id);
+  // if (!product) {
+  //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
+  // }
+  res.status(200).json({
+    success: true,
+    message: "Successfully product deleted!!!",
+    product: product,
+  });
+};
+
+
   module.exports={
     getAllProducts,
-    createProducts
+    createProducts,
+    getSingleProduct,
+    deleteProduct,
+    updateProducts
   }
 
   

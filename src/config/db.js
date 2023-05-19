@@ -8,7 +8,7 @@ function connectDatabase() {
     .then((result) => {
       console.log("Database connected : ", result.connection.host);
     }).catch((err)=>{
-        console.log("Error occurred", err);
+        console.log("Not connected , database Error occurred", err);
 
     });
 }
