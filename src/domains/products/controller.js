@@ -54,7 +54,10 @@ const createProducts = async (req, res, next) => {
 const getAllProducts = async (req, res,next) => {
     try {
       const products = await Product.find();
-      res.status(200).send(products);
+      res.status(201).send({
+        message:"Products found successfully",
+        products
+      });
     } catch (error) {
       res.status(500).send({
         message: "Sorry!!!Server Error!!!!!!!!!!",
@@ -65,7 +68,8 @@ const getAllProducts = async (req, res,next) => {
 
 // API For get single product
 const getSingleProduct = async (req, res, next) => {
-  const product = await Product.findById(req.params.id);
+  try {
+    const product = await Product.findById(req.params.id);
   // if (!product) {
   //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
   // }
@@ -74,6 +78,13 @@ const getSingleProduct = async (req, res, next) => {
     message: "Successfully found product details!!!",
     product: product,
   });
+    
+  } catch (error) {
+    res.status(500).send({
+      message: "Sorry!!!Server Error!!!!!!!!!!",
+      error: error,
+    });
+  }
 };
 
 //Update product data---------------
