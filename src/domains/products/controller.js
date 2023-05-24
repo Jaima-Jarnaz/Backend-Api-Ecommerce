@@ -90,6 +90,7 @@ const getSingleProduct = async (req, res, next) => {
 //Update product data---------------
 
 const updateProducts = async (req, res, next) => {
+try {
   const productUpdated = await Product.findByIdAndUpdate(
     req.params.id,
     req.body,
@@ -105,6 +106,14 @@ const updateProducts = async (req, res, next) => {
     message: "Successfully update product data !!!",
     data: productUpdated,
   });
+  
+} catch (error) {
+  res.status(500).send({
+    message: "Sorry!!!Server Error!!!!!!!!!!",
+    error: error,
+  });
+  
+}
 };
 
 //API for delete specific product data
