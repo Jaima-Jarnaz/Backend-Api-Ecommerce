@@ -11,16 +11,17 @@ const createProducts = async (req, res, next) => {
     const { name, price, description, color, imageUrl } = req.body;
 
     // Upload image into cloudinary
-    console.log("all data", name);
-    console.log("imageUrl", imageUrl);
-    //const result = cloudinary.uploader.upload(imageUrl);
-    // .then((data) => {
-    //   console.log("data from image cloud", data);
-    //   console.log("secure_url", result.secure_url);
-    // })
-    // .catch((er) => {
-    //   console.log(er);
-    // });
+
+    const result = await cloudinary.uploader.upload(imageUrl);
+    // result
+    //   .then((data) => {
+    //     console.log("data from image cloud", data);
+    //     console.log("secure_url", result.secure_url);
+    //   })
+    //   .catch((er) => {
+    //     console.log("From cloudinary ", er);
+    //   });
+    console.log("result", result);
 
     const product = new Product({
       name,
