@@ -9,26 +9,36 @@ const cloudinary = require("../../config/cloudinary");
 const createProducts = async (req, res, next) => {
   try {
     const { name, price, description, color, imageUrl } = req.body;
-    // Upload image into cloudinary
-    console.log(req.body);
-    console.log("imageUrl", imageUrl[0]);
-    const result = cloudinary.uploader
-      .upload(imageUrl)
-      .then(() => {
-        console.log("data from image cloud", result);
-        console.log("secure_url", result.secure_url);
-      })
-      .catch((er) => {
-        console.log(er);
-      });
 
-    // const product = new Product(req.body);
-    // await product.save();
-    // res.status(201).json({
-    //   success: true,
-    //   message: "Successfully product created !!!",
-    //   data: product,
-    // });
+    // Upload image into cloudinary
+
+    const result = await cloudinary.uploader.upload(imageUrl);
+    // result
+    //   .then((data) => {
+    //     console.log("data from image cloud", data);
+    //     console.log("secure_url", result.secure_url);
+    //   })
+    //   .catch((er) => {
+    //     console.log("From cloudinary ", er);
+    //   });
+    console.log("result", result);
+
+    const product = new Product({
+      name,
+      description,
+      price,
+      color,
+      image: {
+        id: result.public_id,
+        url: result.secure_url,
+      },
+    });
+    await product.save();
+    res.status(201).json({
+      success: true,
+      message: "Successfully product created !!!",
+      data: product,
+    });
 
     // if (!product) {
     //   return next(new ErrorHandlerClass("Sorry,invalid operation!!!!!!", 404));
