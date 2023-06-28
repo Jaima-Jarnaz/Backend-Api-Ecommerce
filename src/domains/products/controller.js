@@ -1,8 +1,7 @@
 const Product = require("./model");
 //const ErrorHandlerClass = require("../utils/errorHandlerClass");
 //const catchAsyncError = require("../middleware/catchAsyncError");
-//const ApiFeatures = require("../utils/apiFeatures");
-
+const ApiFeatures = require("../../utils/apiFeatures");
 
 // API for product create for Admin
 const createProducts = async (req, res, next) => {
@@ -29,16 +28,16 @@ const createProducts = async (req, res, next) => {
 // Get all Product,product  search,filter
 // exports.getAllProducts = catchAsyncError(async (req, res, next) => {
 //     const resultPerPage = 5;
-  
+
 //     const apiFeatures = new ApiFeatures(Product.find(), req.query)
 //       .search()
 //       .filter()
 //       .pagination(resultPerPage);
-  
+
 //     const products = await apiFeatures.query;
-  
+
 //     const productCount = await Product.countDocuments();
-  
+
 //     if (!products) {
 //       return next(new ErrorHandlerClass("Sorry no products available!!!", 404));
 //     }
@@ -50,35 +49,38 @@ const createProducts = async (req, res, next) => {
 //     });
 //   });
 
-//API for get all products
-const getAllProducts = async (req, res,next) => {
-    try {
-      const products = await Product.find();
-      res.status(201).send({
-        message:"Products found successfully",
-        products
-      });
-    } catch (error) {
-      res.status(500).send({
-        message: "Sorry!!!Server Error!!!!!!!!!!",
-        error: error,
-      });
-    }
-  };
+//API for get all products with search functionality
+const getAllProducts = async (req, res, next) => {
+  try {
+    //const products = await Product.find();
+    const apiFeature = new ApiFeatures(Product.find(), req.query).search();
+
+    let products = await apiFeature.query;
+
+    res.status(201).send({
+      message: "Products found successfully",
+      products,
+    });
+  } catch (error) {
+    res.status(500).send({
+      message: "Sorry!!!Server Error!!!!!!!!!!",
+      error: error,
+    });
+  }
+};
 
 // API For get single product
 const getSingleProduct = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
-  // if (!product) {
-  //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
-  // }
-  res.status(200).json({
-    success: true,
-    message: "Successfully found product details!!!",
-    product: product,
-  });
-    
+    // if (!product) {
+    //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
+    // }
+    res.status(200).json({
+      success: true,
+      message: "Successfully found product details!!!",
+      product: product,
+    });
   } catch (error) {
     res.status(500).send({
       message: "Sorry!!!Server Error!!!!!!!!!!",
@@ -90,30 +92,28 @@ const getSingleProduct = async (req, res, next) => {
 //Update product data---------------
 
 const updateProducts = async (req, res, next) => {
-try {
-  const productUpdated = await Product.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true, runValidators: true }
-  );
-  // if (!productUpdated) {
-  //   return next(
-  //     new ErrorHandlerClass("Failed to update the product... Not found!!!", 404)
-  //   );
-  // }
-  res.send({
-    success: true,
-    message: "Successfully update product data !!!",
-    data: productUpdated,
-  });
-  
-} catch (error) {
-  res.status(500).send({
-    message: "Sorry!!!Server Error!!!!!!!!!!",
-    error: error,
-  });
-  
-}
+  try {
+    const productUpdated = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    // if (!productUpdated) {
+    //   return next(
+    //     new ErrorHandlerClass("Failed to update the product... Not found!!!", 404)
+    //   );
+    // }
+    res.send({
+      success: true,
+      message: "Successfully update product data !!!",
+      data: productUpdated,
+    });
+  } catch (error) {
+    res.status(500).send({
+      message: "Sorry!!!Server Error!!!!!!!!!!",
+      error: error,
+    });
+  }
 };
 
 //API for delete specific product data
@@ -130,13 +130,10 @@ const deleteProduct = async (req, res, next) => {
   });
 };
 
-
-  module.exports={
-    getAllProducts,
-    createProducts,
-    getSingleProduct,
-    deleteProduct,
-    updateProducts
-  }
-
-  
+module.exports = {
+  getAllProducts,
+  createProducts,
+  getSingleProduct,
+  deleteProduct,
+  updateProducts,
+};
