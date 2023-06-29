@@ -6,6 +6,7 @@ const ApiFeatures = require("../../utils/apiFeatures");
 // API for product create for Admin
 const createProducts = async (req, res, next) => {
   try {
+    const { name, price, description, color, imageUrl } = req.body;
     const product = new Product(req.body);
     await product.save().catch((error) => {
       console.error(error);
