@@ -1,15 +1,17 @@
 const Product = require("./model");
-
-//const ErrorHandlerClass = require("../utils/errorHandlerClass");
+const ErrorHandlerClass = require("../../utils/errorHandlerClass");
 //const catchAsyncError = require("../middleware/catchAsyncError");
-//const ApiFeatures = require("../utils/apiFeatures");
+const ApiFeatures = require("../../utils/apiFeatures");
 
 // API for product create for Admin
 const createProducts = async (req, res, next) => {
   try {
     const { name, price, description, color, imageUrl } = req.body;
     const product = new Product(req.body);
-    await product.save();
+    await product.save().catch((error) => {
+      console.error(error);
+      // Output: CastError: Cast to Number failed for value "twenty" at path "age"
+    });
     res.status(201).json({
       success: true,
       message: "Successfully product created !!!",
@@ -51,10 +53,18 @@ const createProducts = async (req, res, next) => {
 //     });
 //   });
 
-//API for get all products
+//API for get all products with search functionality
 const getAllProducts = async (req, res, next) => {
   try {
-    const products = await Product.find();
+    //const products = await Product.find();
+    const apiFeature = new ApiFeatures(Product.find(), req.query).search();
+
+    let products = await apiFeature.query;
+
+    if (!products) {
+      return next(new ErrorHandlerClass("No products available!!!", 404));
+    }
+
     res.status(201).send({
       message: "Products found successfully",
       products,
@@ -90,62 +100,28 @@ const getSingleProduct = async (req, res, next) => {
 //Update product data---------------
 
 const updateProducts = async (req, res, next) => {
-  console.log("updated data", req.body);
-  const { name, price, description, color, imageUrl } = req.body;
-  const id = req.params.id;
-
-  const existingProductData = await Product.findById(req.params.id);
-  console.log("find by id", existingProductData);
-
-  // if (existingProductData._id === id) {
-  existingProductData.name = name;
-  existingProductData.description = description;
-  existingProductData.price = price;
-  existingProductData.color = color;
-  existingProductData.imageUrl = {
-    public_id: imageUrl.public_id,
-    url: imageUrl.url,
-  };
-
-  console.log("existingProductData", existingProductData);
-
-  const result = await existingProductData.save();
-  console.log(result);
-  res.status(201).json({
-    success: true,
-    message: "Successfully update product data !!!",
-    data: result,
-  });
-  // } else {
-  //   res.status(404).json({ message: "Data not found" });
-  // }
-
-  // const productUpdated = await Product.findByIdAndUpdate(
-  //   req.params.id,
-  //   req.body,
-  //   // {
-  //   //   name: req.body.name,
-  //   //   description: req.body.description,
-  //   //   price: req.body.price,
-  //   //   color: req.body.color,
-  //   //   imageUrl: {
-  //   //     public_id: req.body.imageUrl.public_id,
-  //   //     url: req.body.imageUrl.url,
-  //   //   },
-  //   // },
-  //   { new: true }
-  // );
-  // if (!productUpdated) {
-  //   return next(
-  //     new ErrorHandlerClass("Failed to update the product... Not found!!!", 404)
-  //   );
-  // }
-  // } catch (error) {
-  //   res.status(500).send({
-  //     message: "Sorry!Server Error.!",
-  //     error: error,
-  //   });
-  // }
+  try {
+    const productUpdated = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    // if (!productUpdated) {
+    //   return next(
+    //     new ErrorHandlerClass("Failed to update the product... Not found!!!", 404)
+    //   );
+    // }
+    res.send({
+      success: true,
+      message: "Successfully update product data !!!",
+      data: productUpdated,
+    });
+  } catch (error) {
+    res.status(500).send({
+      message: "Sorry!!!Server Error!!!!!!!!!!",
+      error: error,
+    });
+  }
 };
 
 //API for delete specific product data
