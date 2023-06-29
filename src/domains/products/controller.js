@@ -1,5 +1,5 @@
 const Product = require("./model");
-//const ErrorHandlerClass = require("../utils/errorHandlerClass");
+const ErrorHandlerClass = require("../../utils/errorHandlerClass");
 //const catchAsyncError = require("../middleware/catchAsyncError");
 const ApiFeatures = require("../../utils/apiFeatures");
 
@@ -7,7 +7,10 @@ const ApiFeatures = require("../../utils/apiFeatures");
 const createProducts = async (req, res, next) => {
   try {
     const product = new Product(req.body);
-    await product.save();
+    await product.save().catch((error) => {
+      console.error(error);
+      // Output: CastError: Cast to Number failed for value "twenty" at path "age"
+    });
     res.status(201).json({
       success: true,
       message: "Successfully product created !!!",
@@ -56,6 +59,10 @@ const getAllProducts = async (req, res, next) => {
     const apiFeature = new ApiFeatures(Product.find(), req.query).search();
 
     let products = await apiFeature.query;
+
+    if (!products) {
+      return next(new ErrorHandlerClass("No products available!!!", 404));
+    }
 
     res.status(201).send({
       message: "Products found successfully",

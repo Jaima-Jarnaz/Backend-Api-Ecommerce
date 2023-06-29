@@ -1,6 +1,7 @@
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const errorHandler = require("./middleware/errorHandler");
 const productRoutes = require("./domains/products/route");
 const userRoutes = require("./domains/users/route");
 
@@ -30,5 +31,7 @@ app.use("/users", userRoutes);
 app.get("", (req, res) => {
   res.send("hello");
 });
+
+app.use(errorHandler);
 
 module.exports = app;
