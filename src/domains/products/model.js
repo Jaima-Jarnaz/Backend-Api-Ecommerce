@@ -8,9 +8,16 @@ const productsSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  quantity: {
+    type: Number,
+    required: true,
+  },
   description: {
     type: String,
     required: true,
+  },
+  model: {
+    type: String,
   },
   color: {
     type: String,
