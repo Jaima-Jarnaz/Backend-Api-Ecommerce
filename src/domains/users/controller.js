@@ -39,6 +39,28 @@ const registerUser = async (req, res, next) => {
   }
 };
 
+//API for signIn user
+
+const signInUser = async (req, res, next) => {
+  const { email, password } = req.body;
+  console.log(email, password);
+
+  User.find({ email, password })
+    .then((user) => {
+      if (user) {
+        // User found, do something
+        console.log("User found:", user);
+      } else {
+        // User not found or incorrect credentials
+        console.log("Invalid credentials");
+      }
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+    });
+};
+
 module.exports = {
   registerUser,
+  signInUser,
 };
