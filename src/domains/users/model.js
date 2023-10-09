@@ -3,46 +3,43 @@ const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const ErrorHandlerClass = require("../../utils/errorHandlerClass");
 ErrorHandlerClass;
-const userSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    phone: {
-      type: Number,
-      required: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    confirmPassword: {
-      type: String,
-      required: true,
-    },
-    roles: {
-      type: [String],
-      enum: ["user", "admin"],
-      default: ["user"],
-    },
-    // token: {
-    //   type: String,
-    //   required: true,
-    // },
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
   },
-  { collation: "user" }
-);
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  phone: {
+    type: Number,
+    required: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  confirmPassword: {
+    type: String,
+    required: true,
+  },
+  roles: {
+    type: [String],
+    enum: ["user", "admin"],
+    default: ["user"],
+  },
+  token: {
+    type: String,
+    required: true,
+  },
+});
 
-//generate hash password
+// Generate hash for password and confirmPassword fields before saving
 userSchema.pre("save", function (next) {
   let user = this;
-  if (user.isModified("password")) {
+  if (user.isModified("password") || user.isNew) {
     const saltRounds = 10; // Number of salt rounds to generate
     bcrypt.genSalt(saltRounds, function (err, salt) {
       if (err) {
@@ -53,15 +50,15 @@ userSchema.pre("save", function (next) {
           return next(err);
         }
         user.password = hash;
-        next();
-      });
-      //confirm password hash generate
-      bcrypt.hash(user.confirmPassword, salt, function (err, hash) {
-        if (err) {
-          return next(err);
-        }
-        user.confirmPassword = hash;
-        next();
+
+        // Now, generate the hash for confirmPassword
+        bcrypt.hash(user.confirmPassword, salt, function (err, hash) {
+          if (err) {
+            return next(err);
+          }
+          user.confirmPassword = hash;
+          next();
+        });
       });
     });
   } else {
@@ -97,6 +94,6 @@ userSchema.methods.comparePassword = function (givenPassword, callback) {
 //   });
 // };
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.model("user", userSchema);
 
 module.exports = User;
