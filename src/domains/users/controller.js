@@ -65,7 +65,11 @@ const signInUser = async (req, res, next) => {
 
     // Find the user by email
     const user = await User.findOne({ email: email });
-    const token = user.token;
+    const userData = {
+      email: user.email,
+      phone: user.phone,
+      token: user.token,
+    };
 
     if (!user) {
       // User not found
@@ -83,7 +87,7 @@ const signInUser = async (req, res, next) => {
         res.status(201).json({
           success: true,
           message: "User authentication done successfully",
-          data: { token },
+          data: userData,
         });
       } else {
         // Passwords don't match, authentication failed
