@@ -16,6 +16,10 @@ const registerUser = async (req, res, next) => {
   try {
     const { name, email, phone, password, confirmPassword } = req.body;
 
+    // if (!user) {
+    //   return next(new ErrorHandlerClass(UNREGISTERED_USER, STATUS_CODE_404));
+    // }
+
     //Checking password matching with confirm password
     if (req.body.password !== req.body.confirmPassword) {
       return next(
@@ -40,15 +44,19 @@ const registerUser = async (req, res, next) => {
 
     await user.save();
 
-    if (!user) {
-      return next(new ErrorHandlerClass(UNREGISTERED_USER, STATUS_CODE_404));
-    }
+    //Cookie section
+    const options = {
+      expires: new Date(Date.now() + 1),
+      httpOnly: true,
+    };
 
-    res.status(201).json({
-      success: true,
-      message: "User registered Successfully",
-      data: { name, phone, email, token },
-    });
+    res.cookies("token", token, options);
+
+    // res.status(201).json({
+    //   success: true,
+    //   message: "User registered Successfully",
+    //   data: { name, phone, email, token },
+    // });
   } catch (errors) {
     res.status(500).json({
       success: false,
