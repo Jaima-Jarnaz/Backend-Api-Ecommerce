@@ -1,19 +1,18 @@
-const { User } = require("../domains/users/model");
+const User = require("../domains/users/model");
+const jwt = require("jsonwebtoken");
 
-let auth = (req, res, next) => {
+const auth = async (req, res, next) => {
   //Checking if the token is valid
-  let token = req.cookies.auth_token;
+  let token = req.cookies.token;
+  const verifyUser = jwt.verify(token, process.env.TOKEN_SECRET);
 
-  User.findByToken(token, (err, user) => {
-    if (err) throw err;
-    if (!user)
-      return res.json({
-        isAuth: false,
-        error: true,
-      });
-    req.token = token;
-    req.user = user;
-    next();
-  });
+  const user = await User.findOne({ email: verifyUser.email });
+  if (!user)
+    return res.json({
+      message: "Invalid Token",
+      isAuth: false,
+      error: true,
+    });
+  next();
 };
 module.exports = { auth };
