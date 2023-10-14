@@ -1,12 +1,16 @@
 const jwt = require("jsonwebtoken");
 const User = require("./model");
 const {
-  UNREGISTERED_USER,
+  REGISTERED_USER,
   AUTHENTICATION_FAILED,
   USER_NOT_FOUND,
   PASSWORD_NOT_MATCHING,
   STATUS_CODE_404,
   STATUS_CODE_401,
+  STATUS_CODE_409,
+  SERVER_ERROR,
+  USER_REGISTERED_SUCCESSFULLY,
+  USER_AUTH_DONE_SUCCESSFULLY,
 } = require("../../helpers/constants");
 
 const ErrorHandlerClass = require("../../utils/errorHandlerClass");
@@ -15,6 +19,12 @@ const ErrorHandlerClass = require("../../utils/errorHandlerClass");
 const registerUser = async (req, res, next) => {
   try {
     const { name, email, phone, password, confirmPassword } = req.body;
+
+    //Checking user already registered or not
+    const existingUser = await User.findOne({ email: email });
+    if (existingUser) {
+      return next(new ErrorHandlerClass(REGISTERED_USER, STATUS_CODE_409));
+    }
 
     //Checking password matching with confirm password
     if (req.body.password !== req.body.confirmPassword) {
@@ -40,19 +50,22 @@ const registerUser = async (req, res, next) => {
 
     await user.save();
 
-    if (!user) {
-      return next(new ErrorHandlerClass(UNREGISTERED_USER, STATUS_CODE_404));
-    }
+    //Cookie section
+    const options = {
+      httpOnly: true,
+    };
 
-    res.status(201).json({
+    res.cookie(process.env.TOKEN_KEY, token, options);
+
+    return res.status(201).json({
       success: true,
-      message: "User registered Successfully",
+      message: USER_REGISTERED_SUCCESSFULLY,
       data: { name, phone, email, token },
     });
   } catch (errors) {
     res.status(500).json({
       success: false,
-      message: "Sorry!Something went wrong.Please try again",
+      message: SERVER_ERROR,
       errors,
     });
   }
@@ -65,28 +78,41 @@ const signInUser = async (req, res, next) => {
 
     // Find the user by email
     const user = await User.findOne({ email: email });
-    const userData = {
-      email: user.email,
-      phone: user.phone,
-      token: user.token,
-    };
 
     if (!user) {
       // User not found
       return next(new ErrorHandlerClass(USER_NOT_FOUND, STATUS_CODE_404));
     }
 
+    const userData = {
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      token: user.token,
+    };
+
     // Use the comparePassword method to check if the passwords match
-    user.comparePassword(password, function (err, isMatch) {
+    await user.comparePassword(password, function (err, isMatch) {
       if (err) {
         return next(err); // Handle the error
       }
 
       if (isMatch) {
-        // Passwords match, authentication successful
-        res.status(201).json({
+        // Create a JWT token
+        const token = jwt.sign({ email }, `${process.env.TOKEN_SECRET}`, {
+          expiresIn: "1h", // You can set the expiration time as needed
+        });
+
+        //Cookie section
+        const options = {
+          httpOnly: true,
+        };
+
+        res.cookie(process.env.TOKEN_KEY, token, options);
+
+        return res.status(201).json({
           success: true,
-          message: "User authentication done successfully",
+          message: USER_AUTH_DONE_SUCCESSFULLY,
           data: userData,
         });
       } else {
@@ -98,13 +124,26 @@ const signInUser = async (req, res, next) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: "Sorry! Something went wrong. Please try again.",
+      message: SERVER_ERROR,
       error: error,
     });
   }
 };
 
+const signOut = (req, res, next) => {
+  res.clearCookie("token");
+  res.send("Logged out successfully.");
+};
+
+// Route handler
+const hello = (req, res) => {
+  // Your registration logic goes here
+  res.send("User registered successfully!");
+};
+
 module.exports = {
   registerUser,
   signInUser,
+  signOut,
+  hello,
 };

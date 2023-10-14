@@ -4,6 +4,7 @@ const cors = require("cors");
 const errorHandler = require("./middleware/errorHandler");
 const productRoutes = require("./domains/products/route");
 const userRoutes = require("./domains/users/route");
+const cookieParser = require("cookie-parser");
 
 // For accessing environment variables from .env file
 const dotenv = require("dotenv");
@@ -15,6 +16,8 @@ const baseUrl =
 
 const app = express();
 app.use(express.json()); //Used to parse JSON bodies
+
+app.use(cookieParser());
 
 // HTTP request logger middleware for node.js
 app.use(
