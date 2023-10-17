@@ -50,14 +50,7 @@ const registerUser = async (req, res, next) => {
 
     await user.save();
 
-    //Cookie section
-    const options = {
-      httpOnly: true,
-    };
-
-    res.cookie(process.env.TOKEN_KEY, token, options);
-
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: USER_REGISTERED_SUCCESSFULLY,
       data: { name, phone, email, token },
@@ -98,19 +91,7 @@ const signInUser = async (req, res, next) => {
       }
 
       if (isMatch) {
-        // Create a JWT token
-        const token = jwt.sign({ email }, `${process.env.TOKEN_SECRET}`, {
-          expiresIn: "1h", // You can set the expiration time as needed
-        });
-
-        //Cookie section
-        const options = {
-          httpOnly: true,
-        };
-
-        res.cookie(process.env.TOKEN_KEY, token, options);
-
-        return res.status(201).json({
+        res.status(201).json({
           success: true,
           message: USER_AUTH_DONE_SUCCESSFULLY,
           data: userData,
