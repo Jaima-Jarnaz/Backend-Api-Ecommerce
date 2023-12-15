@@ -4,11 +4,10 @@ const {
   getAllProducts,
   getSingleProduct,
   updateProducts,
-  deleteProduct
-
+  deleteProduct,
 } = require("./controller");
 //const authenticateUser = require("../middleware/auth");
-const router =  express.Router();
+const router = express.Router();
 
 router.route("/all").get(getAllProducts);
 router.route("/new").post(createProducts);

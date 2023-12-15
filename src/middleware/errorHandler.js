@@ -1,4 +1,4 @@
-const ErrorHandlerClass = require("../utils/errorHandlerClass");
+const CustomErrorHandler = require("../utils/customErrorHandler");
 
 module.exports = (err, req, res, next) => {
   err.message = err.message || "Sorry!!Internal Server Error";
@@ -8,7 +8,7 @@ module.exports = (err, req, res, next) => {
   //this type error
   if (err.name === "CastError") {
     const message = `Resource not found. Invalid ${err.path} and ${err}`;
-    err = new ErrorHandlerClass(message, 400);
+    err = new CustomErrorHandler(message, 400);
   }
 
   res.status(err.statusCode).json({
