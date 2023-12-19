@@ -91,9 +91,31 @@ const updateOrderDetails = async (req, res, next) => {
   }
 };
 
+//------------API for delete order----------------
+const deleteOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+
+    if (!order) {
+      return next(new CustomErrorHandler("No orders available!!!", 404));
+    }
+
+    res.status(201).send({
+      message: "Order deleted .....",
+      order,
+    });
+  } catch (error) {
+    res.status(500).send({
+      message: "Sorry!!!Server Error!!!!!!!!!!",
+      error: error,
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   getAllOrders,
   getSingleOrder,
   updateOrderDetails,
+  deleteOrder,
 };
