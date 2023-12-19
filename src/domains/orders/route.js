@@ -4,7 +4,7 @@ const {
   getAllOrders,
   getSingleOrder,
   updateOrderDetails,
-  //   deleteProduct
+  deleteOrder,
 } = require("./controller");
 //const authenticateUser = require("../middleware/auth");
 const router = express.Router();
@@ -13,6 +13,6 @@ router.route("/all").get(getAllOrders);
 router.route("/create").post(createOrder);
 router.route("/:id").get(getSingleOrder);
 router.route("/update/:id").put(updateOrderDetails);
-// router.route("/delete/:id").delete(deleteProduct);
+router.route("/delete/:id").delete(deleteOrder);
 
 module.exports = router;
