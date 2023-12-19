@@ -13,7 +13,7 @@ const {
   USER_AUTH_DONE_SUCCESSFULLY,
 } = require("../../helpers/constants");
 
-const ErrorHandlerClass = require("../../utils/errorHandlerClass");
+const CustomErrorHandler = require("../../utils/customErrorHandler");
 
 // API for register user
 const registerUser = async (req, res, next) => {
@@ -23,13 +23,13 @@ const registerUser = async (req, res, next) => {
     //Checking user already registered or not
     const existingUser = await User.findOne({ email: email });
     if (existingUser) {
-      return next(new ErrorHandlerClass(REGISTERED_USER, STATUS_CODE_409));
+      return next(new CustomErrorHandler(REGISTERED_USER, STATUS_CODE_409));
     }
 
     //Checking password matching with confirm password
     if (req.body.password !== req.body.confirmPassword) {
       return next(
-        new ErrorHandlerClass(PASSWORD_NOT_MATCHING, STATUS_CODE_401)
+        new CustomErrorHandler(PASSWORD_NOT_MATCHING, STATUS_CODE_401)
       );
     }
 
@@ -74,7 +74,7 @@ const signInUser = async (req, res, next) => {
 
     if (!user) {
       // User not found
-      return next(new ErrorHandlerClass(USER_NOT_FOUND, STATUS_CODE_404));
+      return next(new CustomErrorHandler(USER_NOT_FOUND, STATUS_CODE_404));
     }
 
     const userData = {
@@ -99,7 +99,7 @@ const signInUser = async (req, res, next) => {
       } else {
         // Passwords don't match, authentication failed
         return next(
-          new ErrorHandlerClass(AUTHENTICATION_FAILED, STATUS_CODE_401)
+          new CustomErrorHandler(AUTHENTICATION_FAILED, STATUS_CODE_401)
         );
       }
     });
@@ -112,7 +112,7 @@ const signInUser = async (req, res, next) => {
 };
 
 const signOut = (req, res, next) => {
-  res.clearCookie("token");
+  res.clearCookie("access_token");
   res.send("Logged out successfully.");
 };
 

@@ -1,8 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const ErrorHandlerClass = require("../../utils/errorHandlerClass");
-ErrorHandlerClass;
 const userSchema = new mongoose.Schema({
   name: {
     type: String,

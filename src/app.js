@@ -4,6 +4,7 @@ const cors = require("cors");
 const errorHandler = require("./middleware/errorHandler");
 const productRoutes = require("./domains/products/route");
 const userRoutes = require("./domains/users/route");
+const orderRoutes = require("./domains/orders/route");
 const cookieParser = require("cookie-parser");
 
 // For accessing environment variables from .env file
@@ -30,6 +31,7 @@ app.use(cors());
 // All routes defined here
 app.use("/products", productRoutes);
 app.use("/users", userRoutes);
+app.use("/orders", orderRoutes);
 
 app.get("", (req, res) => {
   res.send("hello");

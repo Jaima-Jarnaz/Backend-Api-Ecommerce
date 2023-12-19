@@ -1,5 +1,5 @@
 const Product = require("./model");
-const ErrorHandlerClass = require("../../utils/errorHandlerClass");
+const CustomErrorHandler = require("../../utils/customErrorHandler");
 //const catchAsyncError = require("../middleware/catchAsyncError");
 const ApiFeatures = require("../../utils/apiFeatures");
 
@@ -62,7 +62,7 @@ const getAllProducts = async (req, res, next) => {
     let products = await apiFeature.query;
 
     if (!products) {
-      return next(new ErrorHandlerClass("No products available!!!", 404));
+      return next(new CustomErrorHandler("No products available!!!", 404));
     }
 
     res.status(201).send({
