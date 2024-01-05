@@ -119,6 +119,8 @@ const deleteOrder = async (req, res, next) => {
     }
 
     res.status(201).send({
+      success: true,
+
       message: "Order deleted .....",
       order,
     });
