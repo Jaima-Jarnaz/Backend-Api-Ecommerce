@@ -6,7 +6,6 @@ const ApiFeatures = require("../../utils/apiFeatures");
 // API for product create for Admin
 const createProducts = async (req, res, next) => {
   try {
-    const { name, price, description, color, imageUrl } = req.body;
     const product = new Product(req.body);
     await product.save().catch((error) => {
       console.error(error);
@@ -56,11 +55,7 @@ const createProducts = async (req, res, next) => {
 //API for get all products with search functionality
 const getAllProducts = async (req, res, next) => {
   try {
-    //const products = await Product.find();
-    const apiFeature = new ApiFeatures(Product.find(), req.query).search();
-
-    let products = await apiFeature.query;
-
+    const products = await Product.find();
     if (!products) {
       return next(new CustomErrorHandler("No products available!!!", 404));
     }
@@ -81,9 +76,9 @@ const getAllProducts = async (req, res, next) => {
 const getSingleProduct = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
-    // if (!product) {
-    //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
-    // }
+    if (!product) {
+      return next(new CustomErrorHandler("Product not found!!!!", 404));
+    }
     res.status(200).json({
       success: true,
       message: "Successfully found product details!!!",
@@ -106,11 +101,14 @@ const updateProducts = async (req, res, next) => {
       req.body,
       { new: true, runValidators: true }
     );
-    // if (!productUpdated) {
-    //   return next(
-    //     new ErrorHandlerClass("Failed to update the product... Not found!!!", 404)
-    //   );
-    // }
+    if (!productUpdated) {
+      return next(
+        new CustomErrorHandler(
+          "Failed to update the product... Not found!!!",
+          404
+        )
+      );
+    }
     res.send({
       success: true,
       message: "Successfully update product data !!!",
@@ -128,14 +126,46 @@ const updateProducts = async (req, res, next) => {
 
 const deleteProduct = async (req, res, next) => {
   const product = await Product.findByIdAndDelete(req.params.id);
-  // if (!product) {
-  //   return next(new ErrorHandlerClass("Product not found!!!!", 404));
-  // }
+  if (!product) {
+    return next(new CustomErrorHandler("Product not found!!!!", 404));
+  }
   res.status(200).json({
     success: true,
     message: "Successfully product deleted!!!",
     product: product,
   });
+};
+
+// API for checking promo code and generate discount
+
+const promoCodeValidate = async (req, res, next) => {
+  const { promo_code } = req.body;
+
+  try {
+    // Assuming your Product schema has a field named 'promo_code'
+    const promoCode = await Product.findOne({ promo_code });
+
+    if (!promoCode) {
+      return res.status(404).json({
+        success: false,
+        message: "Promo code not found!",
+      });
+    }
+
+    // Promo code matched, you can include additional checks here if needed
+    console.log("promoCode", promoCode);
+    let discount = 10;
+
+    res.status(200).json({
+      success: true,
+      message: "Valid promo code.",
+      discount: discount,
+    });
+  } catch (err) {
+    // Handle any errors that might occur during the database query
+    console.error(err);
+    return next(new CustomErrorHandler("Internal Server Error", 500));
+  }
 };
 
 module.exports = {
@@ -144,4 +174,5 @@ module.exports = {
   getSingleProduct,
   deleteProduct,
   updateProducts,
+  promoCodeValidate,
 };
