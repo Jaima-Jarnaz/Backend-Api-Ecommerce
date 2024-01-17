@@ -20,12 +20,18 @@ const productsSchema = new mongoose.Schema({
   model: {
     type: String,
   },
+  brand: {
+    type: String,
+  },
   color: {
     type: String,
   },
   imageUrl: {
     type: Object,
     required: true,
+  },
+  promo_code: {
+    type: String,
   },
 });
 const Product = mongoose.model("Product", productsSchema);
