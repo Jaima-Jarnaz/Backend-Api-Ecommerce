@@ -120,7 +120,7 @@ node -v   # should print v20.17.0
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Jaima-Jarnaz/Backend-Api-Ecommerce/
 cd Backend-Api-Ecommerce
 ```
 
