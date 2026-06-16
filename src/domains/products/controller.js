@@ -2,36 +2,35 @@ const Product = require("./model");
 const CustomErrorHandler = require("../../utils/customErrorHandler");
 //const catchAsyncError = require("../middleware/catchAsyncError");
 const ApiFeatures = require("../../utils/apiFeatures");
-const notifySubscribersAboutProduct = require("../subscriptions/notifySubscriber");
+const startProductNotificationCampaign = require("../subscriptions/startCampaign");
 
 // API for product create for Admin
 const createProducts = async (req, res, next) => {
   try {
-    const { name, price, description, color, imageUrl } = req.body;
     const product = new Product(req.body);
-    await product
-      .save()
-      .then(() => {
-        res.status(201).json({
-          success: true,
-          message: "Successfully product created !!!",
-          data: product,
-        });
-      })
-      .catch((error) => {
-        console.error(error);
-        return next(
-          new CustomErrorHandler("Sorry,invalid operation!!!!!!", 404),
-        );
-      });
+    await product.save();
 
-    // if (!product) {
-    //   return next(new ErrorHandlerClass("Sorry,invalid operation!!!!!!", 404));
-    // }
+    let emailCampaign = null;
 
-    // Background email sending (no cron, no await blocking response)
-    notifySubscribersAboutProduct(product).catch((error) => {
-      console.error("Background email notification failed:", error.message);
+    try {
+      emailCampaign = await startProductNotificationCampaign(product);
+    } catch (error) {
+      console.error("Failed to start email campaign:", error.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Successfully product created !!!",
+      data: product,
+      emailCampaign: emailCampaign
+        ? {
+            id: emailCampaign._id,
+            status: emailCampaign.status,
+            totalSubscribers: emailCampaign.totalSubscribers,
+            totalBatches: emailCampaign.totalBatches,
+            pendingCount: emailCampaign.pendingCount,
+          }
+        : null,
     });
   } catch (error) {
     res.status(500).send({

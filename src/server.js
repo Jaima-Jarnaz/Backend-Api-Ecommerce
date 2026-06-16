@@ -1,9 +1,8 @@
-const app = require("./app");
-const connectDatabase = require("./config/db");
-
-// For accessing environment variables in .env file
 const dotenv = require("dotenv");
 dotenv.config();
+
+const app = require("./app");
+const connectDatabase = require("./config/db");
 
 // Database connection
 connectDatabase();

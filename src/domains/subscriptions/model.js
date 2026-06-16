@@ -22,4 +22,6 @@ const subscriberSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+subscriberSchema.index({ isActive: 1, _id: 1 });
+
 module.exports = mongoose.model("Subscriber", subscriberSchema);
