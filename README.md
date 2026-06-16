@@ -2,7 +2,7 @@
 
 **Version:** `1.0.0`
 
-REST API backend for an e-commerce application. Built with Node.js, Express, and MongoDB. Handles user authentication, product management, order processing, and Cloudinary image storage.
+REST API backend for an e-commerce application. Built with Node.js, Express, and MongoDB. Handles user authentication, product management, order processing, newsletter email subscriptions, and Cloudinary image storage.
 
 ---
 
@@ -26,6 +26,17 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 - Get a single product by ID
 - Update product details
 - Delete a product
+- Automatically notify active newsletter subscribers when a new product is created
+
+### Newsletter / Email Subscriptions
+
+- Public email subscription (no account required)
+- Email validation and duplicate handling
+- Resubscribe support for previously unsubscribed users
+- Unsubscribe via secure token link
+- HTML confirmation page shown after unsubscribe (success, already unsubscribed, or error)
+- New product notification emails sent via [Resend](https://resend.com) with styled HTML templates
+- Background email delivery when products are created (non-blocking, no cron job)
 
 ### Order Management
 
@@ -45,7 +56,7 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 ### Database
 
 - MongoDB with Mongoose ODM
-- Schemas for Users, Products, and Orders
+- Schemas for Users, Products, Orders, and Subscribers
 
 ### Image Storage
 
@@ -74,6 +85,7 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 | cookie-parser | `1.4.7`   | Cookie parsing        |
 | cors          | `2.8.6`   | Cross-origin requests |
 | dotenv        | `16.6.1`  | Environment variables |
+| Resend        | `6.12.4`  | Transactional email   |
 | Morgan        | `1.11.0`  | Request logging       |
 | Nodemon       | `2.0.22`  | Dev auto-reload       |
 
@@ -94,6 +106,7 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 | cors          | `^2.8.5`       | `2.8.6`                         |
 | dotenv        | `^16.0.3`      | `16.6.1`                        |
 | nodemon       | `^2.0.22`      | `2.0.22`                        |
+| resend        | `^6.12.4`      | `6.12.4`                        |
 | morgan        | `^1.10.0`      | `1.11.0`                        |
 
 ---
@@ -104,6 +117,7 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 - **npm** `10.x` or higher (bundled with Node 20.17.0)
 - **MongoDB** `6.x` or higher (local or MongoDB Atlas)
 - **Cloudinary** account (for product images)
+- **Resend** account (for newsletter and product notification emails)
 
 ### Install Node 20.17.0 with nvm
 
@@ -144,7 +158,38 @@ Create a `.env` file in the project root (same folder as `package.json`). The ap
 touch .env
 ```
 
-Add the following from .env.local and replace the placeholder values with your own .env
+Add the following variables and replace the placeholder values with your own credentials:
+
+```env
+# Server
+PORT=4000
+BASE_URL=http://localhost:4000
+FRONTEND_URL=http://localhost:3000
+
+# Database
+DB_URL=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>
+
+# Auth
+TOKEN_SECRET=your_jwt_secret
+TOKEN_KEY=token
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+
+# Resend (email subscriptions)
+RESEND_API_KEY=re_your_resend_api_key
+EMAIL_FROM=onboarding@resend.dev
+```
+
+| Variable         | Description                                                                 |
+| ---------------- | --------------------------------------------------------------------------- |
+| `RESEND_API_KEY` | API key from [Resend Dashboard](https://resend.com/api-keys)                |
+| `EMAIL_FROM`     | Sender address (`onboarding@resend.dev` for testing; use your domain in prod) |
+| `FRONTEND_URL`   | Frontend base URL used in product links inside notification emails           |
+| `BASE_URL`       | Backend base URL used for unsubscribe links in emails                       |
 
 > **Note:** Never commit `.env` to version control. It is already listed in `.gitignore`.
 
@@ -298,6 +343,100 @@ GET http://localhost:4000/products/all?keyword=iphone
 
 ---
 
+### Subscriptions (`/subscriptions`)
+
+| Method | Endpoint                          | Auth | Description                                      |
+| ------ | --------------------------------- | ---- | ------------------------------------------------ |
+| POST   | `/subscriptions/subscribe`        | No   | Subscribe an email to the newsletter             |
+| GET    | `/subscriptions/unsubscribe/:token` | No | Unsubscribe and show HTML confirmation page    |
+
+**Subscribe — `POST /subscriptions/subscribe`**
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Success responses**
+
+| Status | Message                      | When                          |
+| ------ | ---------------------------- | ----------------------------- |
+| `201`  | `Subscribed successfully`    | New subscriber                |
+| `200`  | `Already subscribed`         | Email is already active       |
+| `200`  | `Resubscribed successfully`  | Previously unsubscribed email |
+
+**Example success (`201`)**
+
+```json
+{
+  "success": true,
+  "message": "Subscribed successfully",
+  "data": {
+    "email": "user@example.com"
+  }
+}
+```
+
+**Error responses**
+
+| Status | Message                    |
+| ------ | -------------------------- |
+| `400`  | `Email is required`        |
+| `400`  | `Invalid email format`     |
+| `409`  | `Email already subscribed` |
+| `500`  | `Server error`             |
+
+**Unsubscribe — `GET /subscriptions/unsubscribe/:token`**
+
+When a user clicks the unsubscribe link in a product notification email, the backend:
+
+1. Marks the subscriber as inactive (`isActive: false`)
+2. Returns a styled HTML page (not JSON)
+
+Example link (included in notification emails):
+
+```
+http://localhost:4000/subscriptions/unsubscribe/<unsubscribeToken>
+```
+
+**Unsubscribe page states**
+
+| Case                    | HTTP Status | Page shown              |
+| ----------------------- | ----------- | ----------------------- |
+| Successfully unsubscribed | `200`     | Success confirmation    |
+| Already unsubscribed    | `200`       | Already unsubscribed    |
+| Invalid or expired token | `404`      | Error page              |
+| Server error            | `500`       | Error page              |
+
+### How product notification emails work
+
+1. User subscribes via `POST /subscriptions/subscribe`
+2. Admin creates a product via `POST /products/new`
+3. After the product is saved, the API responds immediately
+4. Emails are sent in the background to all active subscribers via Resend
+5. Each email includes a product link (`FRONTEND_URL/product/:id`) and an unsubscribe link
+
+No cron job is required — notifications are triggered instantly on product creation.
+
+**Frontend integration example**
+
+```javascript
+const subscribeNewsletter = async (email) => {
+  const res = await fetch("http://localhost:4000/subscriptions/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message);
+  return data;
+};
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -310,6 +449,7 @@ Backend-Api-Ecommerce/
 │   │   └── cloudinary.js       # Cloudinary configuration
 │   ├── domains/
 │   │   ├── products/           # Product routes, controller, model
+│   │   ├── subscriptions/      # Newsletter subscribe, unsubscribe, notify logic
 │   │   ├── users/              # User routes, controller, model
 │   │   └── orders/             # Order routes, controller, model
 │   ├── middleware/
@@ -319,7 +459,9 @@ Backend-Api-Ecommerce/
 │   │   └── constants.js        # API response constants
 │   └── utils/
 │       ├── apiFeatures.js      # Search & filter utilities
-│       └── customErrorHandler.js
+│       ├── customErrorHandler.js
+│       ├── emailTemplates.js   # HTML templates for product & unsubscribe emails
+│       └── sendEmail.js        # Resend email sender utility
 ├── .env                        # Environment variables (create this)
 ├── package.json
 └── README.md
@@ -357,6 +499,17 @@ npm run dev
 **Port already in use**
 
 Change `PORT` in `.env` or stop the process using port 4000.
+
+**Resend error: `Missing API key` on startup**
+
+- Ensure `RESEND_API_KEY` is set in `.env`
+- `dotenv.config()` must run before other modules load (configured at the top of `src/app.js` and `src/server.js`)
+
+**Product notification emails not received**
+
+- Confirm the subscriber email exists and `isActive: true` in the database
+- With Resend's test sender (`onboarding@resend.dev`), emails can only be sent to verified addresses until you add your own domain
+- Check server logs for `Failed to notify` or `Email send failed` messages
 
 ---
 

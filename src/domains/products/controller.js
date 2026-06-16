@@ -2,25 +2,37 @@ const Product = require("./model");
 const CustomErrorHandler = require("../../utils/customErrorHandler");
 //const catchAsyncError = require("../middleware/catchAsyncError");
 const ApiFeatures = require("../../utils/apiFeatures");
+const notifySubscribersAboutProduct = require("../subscriptions/notifySubscriber");
 
 // API for product create for Admin
 const createProducts = async (req, res, next) => {
   try {
     const { name, price, description, color, imageUrl } = req.body;
     const product = new Product(req.body);
-    await product.save().catch((error) => {
-      console.error(error);
-      // Output: CastError: Cast to Number failed for value "twenty" at path "age"
-    });
-    res.status(201).json({
-      success: true,
-      message: "Successfully product created !!!",
-      data: product,
-    });
+    await product
+      .save()
+      .then(() => {
+        res.status(201).json({
+          success: true,
+          message: "Successfully product created !!!",
+          data: product,
+        });
+      })
+      .catch((error) => {
+        console.error(error);
+        return next(
+          new CustomErrorHandler("Sorry,invalid operation!!!!!!", 404),
+        );
+      });
 
     // if (!product) {
     //   return next(new ErrorHandlerClass("Sorry,invalid operation!!!!!!", 404));
     // }
+
+    // Background email sending (no cron, no await blocking response)
+    notifySubscribersAboutProduct(product).catch((error) => {
+      console.error("Background email notification failed:", error.message);
+    });
   } catch (error) {
     res.status(500).send({
       message: "Sorry!!!Server Error!!!!!!!!!!",
@@ -104,7 +116,7 @@ const updateProducts = async (req, res, next) => {
     const productUpdated = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
     // if (!productUpdated) {
     //   return next(
