@@ -2,7 +2,7 @@
 
 **Version:** `1.0.0`
 
-REST API backend for an e-commerce application. Built with Node.js, Express, and MongoDB. Handles user authentication, product management, order processing, newsletter email subscriptions, and Cloudinary image storage.
+REST API backend for an e-commerce application. Built with Node.js, Express, and MongoDB. Handles user authentication, product management, order processing, newsletter email subscriptions with queued batch delivery (BullMQ + Redis), and Cloudinary image storage.
 
 ---
 
@@ -26,7 +26,8 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 - Get a single product by ID
 - Update product details
 - Delete a product
-- Automatically notify active newsletter subscribers when a new product is created
+- Automatically start an email campaign to notify active newsletter subscribers when a new product is created
+- Product create response includes campaign metadata (`id`, `status`, `totalSubscribers`, `totalBatches`, `pendingCount`)
 
 ### Newsletter / Email Subscriptions
 
@@ -36,7 +37,11 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 - Unsubscribe via secure token link
 - HTML confirmation page shown after unsubscribe (success, already unsubscribed, or error)
 - New product notification emails sent via [Resend](https://resend.com) with styled HTML templates
-- Background email delivery when products are created (non-blocking, no cron job)
+- Queued batch email campaigns via [BullMQ](https://docs.bullmq.io/) and [Redis](https://redis.io/) (Upstash supported)
+- Subscribers processed in configurable batches (default: 500 per job)
+- Per-campaign progress tracking (`sentCount`, `failedCount`, `pendingCount`, batch completion)
+- Campaign status endpoint to poll delivery progress
+- Separate email worker process with retry and exponential backoff on failed batches
 
 ### Order Management
 
@@ -56,7 +61,7 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 ### Database
 
 - MongoDB with Mongoose ODM
-- Schemas for Users, Products, Orders, and Subscribers
+- Schemas for Users, Products, Orders, Subscribers, and EmailCampaigns
 
 ### Image Storage
 
@@ -86,6 +91,8 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 | cors          | `2.8.6`   | Cross-origin requests |
 | dotenv        | `16.6.1`  | Environment variables |
 | Resend        | `6.12.4`  | Transactional email   |
+| BullMQ        | `5.78.1`  | Job queue for email batches |
+| ioredis       | `5.11.1`  | Redis client for BullMQ |
 | Morgan        | `1.11.0`  | Request logging       |
 | Nodemon       | `2.0.22`  | Dev auto-reload       |
 
@@ -107,6 +114,8 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 | dotenv        | `^16.0.3`      | `16.6.1`                        |
 | nodemon       | `^2.0.22`      | `2.0.22`                        |
 | resend        | `^6.12.4`      | `6.12.4`                        |
+| bullmq        | `^5.78.1`      | `5.78.1`                        |
+| ioredis       | `^5.11.1`      | `5.11.1`                        |
 | morgan        | `^1.10.0`      | `1.11.0`                        |
 
 ---
@@ -118,6 +127,7 @@ REST API backend for an e-commerce application. Built with Node.js, Express, and
 - **MongoDB** `6.x` or higher (local or MongoDB Atlas)
 - **Cloudinary** account (for product images)
 - **Resend** account (for newsletter and product notification emails)
+- **Redis** instance (e.g. [Upstash Redis](https://upstash.com/) — required for the email job queue)
 
 ### Install Node 20.17.0 with nvm
 
@@ -182,14 +192,24 @@ CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 # Resend (email subscriptions)
 RESEND_API_KEY=re_your_resend_api_key
 EMAIL_FROM=onboarding@resend.dev
+
+# Redis (BullMQ email queue — Upstash URL works)
+REDIS_URL=rediss://default:<password>@<host>:6379
+
+# Email campaign tuning (optional)
+EMAIL_BATCH_SIZE=500
+EMAIL_CONCURRENCY=20
 ```
 
-| Variable         | Description                                                                 |
-| ---------------- | --------------------------------------------------------------------------- |
-| `RESEND_API_KEY` | API key from [Resend Dashboard](https://resend.com/api-keys)                |
-| `EMAIL_FROM`     | Sender address (`onboarding@resend.dev` for testing; use your domain in prod) |
-| `FRONTEND_URL`   | Frontend base URL used in product links inside notification emails           |
-| `BASE_URL`       | Backend base URL used for unsubscribe links in emails                       |
+| Variable            | Description                                                                 |
+| ------------------- | --------------------------------------------------------------------------- |
+| `RESEND_API_KEY`    | API key from [Resend Dashboard](https://resend.com/api-keys)                |
+| `EMAIL_FROM`        | Sender address (`onboarding@resend.dev` for testing; use your domain in prod) |
+| `FRONTEND_URL`      | Frontend base URL used in product links inside notification emails           |
+| `BASE_URL`          | Backend base URL used for unsubscribe links in emails                       |
+| `REDIS_URL`         | Redis connection URL (required for product notification campaigns)          |
+| `EMAIL_BATCH_SIZE`  | Subscribers per queue job (default: `500`)                                  |
+| `EMAIL_CONCURRENCY` | Parallel Resend sends per batch in the worker (default: `20`)               |
 
 > **Note:** Never commit `.env` to version control. It is already listed in `.gitignore`.
 
@@ -208,7 +228,24 @@ Server is listening on port 4000
 Database connected : <your-mongodb-host>
 ```
 
-### 6. Run in production mode
+### 6. Start the email worker
+
+Product notification emails are processed by a separate worker process. Run it in a second terminal (requires `REDIS_URL` in `.env`):
+
+```bash
+npm run worker:dev
+```
+
+You should see:
+
+```
+Email worker started and listening for jobs...
+Database connected : <your-mongodb-host>
+```
+
+For production, use `npm run worker` instead of `npm run worker:dev`.
+
+### 7. Run in production mode
 
 ```bash
 npm run serve
@@ -292,6 +329,27 @@ GET http://localhost:4000/products/all?keyword=iphone
 }
 ```
 
+**Create product — success response (includes email campaign)**
+
+When active subscribers exist, the response includes an `emailCampaign` object with the campaign ID and initial progress. Use the campaign ID with `GET /subscriptions/campaign/:id` to poll status.
+
+```json
+{
+  "success": true,
+  "message": "Successfully product created !!!",
+  "data": { "...": "product fields" },
+  "emailCampaign": {
+    "id": "679abc123def456789012345",
+    "status": "processing",
+    "totalSubscribers": 1200,
+    "totalBatches": 3,
+    "pendingCount": 1200
+  }
+}
+```
+
+If there are no active subscribers, `emailCampaign` is `null`.
+
 ---
 
 ### Orders (`/orders`)
@@ -349,6 +407,7 @@ GET http://localhost:4000/products/all?keyword=iphone
 | ------ | --------------------------------- | ---- | ------------------------------------------------ |
 | POST   | `/subscriptions/subscribe`        | No   | Subscribe an email to the newsletter             |
 | GET    | `/subscriptions/unsubscribe/:token` | No | Unsubscribe and show HTML confirmation page    |
+| GET    | `/subscriptions/campaign/:id`     | No   | Get email campaign delivery status               |
 
 **Subscribe — `POST /subscriptions/subscribe`**
 
@@ -409,15 +468,62 @@ http://localhost:4000/subscriptions/unsubscribe/<unsubscribeToken>
 | Invalid or expired token | `404`      | Error page              |
 | Server error            | `500`       | Error page              |
 
+**Campaign status — `GET /subscriptions/campaign/:id`**
+
+Poll delivery progress after creating a product. Returns counts and batch completion for the campaign started by `POST /products/new`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "679abc123def456789012345",
+    "productId": "679abc000def456789012340",
+    "productName": "iPhone 14 Pro",
+    "status": "processing",
+    "totalSubscribers": 1200,
+    "totalBatches": 3,
+    "sentCount": 800,
+    "failedCount": 2,
+    "pendingCount": 398,
+    "completedBatches": 1,
+    "failedBatches": 0,
+    "startedAt": "2026-06-16T10:00:00.000Z",
+    "completedAt": null,
+    "createdAt": "2026-06-16T10:00:00.000Z",
+    "updatedAt": "2026-06-16T10:05:00.000Z"
+  }
+}
+```
+
+| `status` value  | Meaning                                              |
+| --------------- | ---------------------------------------------------- |
+| `processing`    | Batches are queued or being sent by the worker       |
+| `completed`     | All batches finished (some individual sends may fail)|
+| `failed`        | Reserved for campaign-level failures               |
+
+| Status | Message              | When                |
+| ------ | -------------------- | ------------------- |
+| `404`  | `Campaign not found` | Invalid campaign ID |
+
 ### How product notification emails work
 
 1. User subscribes via `POST /subscriptions/subscribe`
 2. Admin creates a product via `POST /products/new`
-3. After the product is saved, the API responds immediately
-4. Emails are sent in the background to all active subscribers via Resend
-5. Each email includes a product link (`FRONTEND_URL/product/:id`) and an unsubscribe link
+3. The API creates an `EmailCampaign` record and enqueues subscriber batches to Redis (BullMQ)
+4. The API responds immediately with product data and `emailCampaign` metadata
+5. The email worker (`npm run worker`) picks up batch jobs and sends emails via Resend
+6. Each email includes a product link (`FRONTEND_URL/product/:id`) and an unsubscribe link
+7. Poll `GET /subscriptions/campaign/:id` to track `sentCount`, `failedCount`, and completion
 
-No cron job is required — notifications are triggered instantly on product creation.
+```
+POST /products/new  →  API enqueues batches  →  Redis (BullMQ)
+                                                      ↓
+                                            Email worker sends via Resend
+                                                      ↓
+                              Campaign stats updated in MongoDB
+```
+
+Both the API server and the email worker must be running. No cron job is required — campaigns start instantly on product creation.
 
 **Frontend integration example**
 
@@ -446,12 +552,17 @@ Backend-Api-Ecommerce/
 │   ├── server.js               # Server entry point
 │   ├── config/
 │   │   ├── db.js               # MongoDB connection
-│   │   └── cloudinary.js       # Cloudinary configuration
+│   │   ├── cloudinary.js       # Cloudinary configuration
+│   │   └── redis.js            # Redis connection for BullMQ
 │   ├── domains/
 │   │   ├── products/           # Product routes, controller, model
-│   │   ├── subscriptions/      # Newsletter subscribe, unsubscribe, notify logic
+│   │   ├── subscriptions/      # Subscribe, unsubscribe, campaign queue logic
 │   │   ├── users/              # User routes, controller, model
 │   │   └── orders/             # Order routes, controller, model
+│   ├── queues/
+│   │   └── emailQueue.js       # BullMQ queue for product notification batches
+│   ├── workers/
+│   │   └── emailWorker.js      # Processes email batch jobs from the queue
 │   ├── middleware/
 │   │   ├── auth.js             # JWT authentication middleware
 │   │   └── errorHandler.js     # Global error handler
@@ -471,10 +582,12 @@ Backend-Api-Ecommerce/
 
 ## Scripts
 
-| Command         | Description                                 |
-| --------------- | ------------------------------------------- |
-| `npm run dev`   | Start dev server with nodemon (auto-reload) |
-| `npm run serve` | Start production server                     |
+| Command            | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| `npm run dev`      | Start dev server with nodemon (auto-reload)      |
+| `npm run serve`    | Start production server                          |
+| `npm run worker`   | Start email worker (processes notification jobs) |
+| `npm run worker:dev` | Start email worker with nodemon (development)  |
 
 ---
 
@@ -507,9 +620,17 @@ Change `PORT` in `.env` or stop the process using port 4000.
 
 **Product notification emails not received**
 
+- Confirm the email worker is running (`npm run worker:dev` or `npm run worker`)
+- Verify `REDIS_URL` is set and reachable (Upstash dashboard shows connection errors)
 - Confirm the subscriber email exists and `isActive: true` in the database
+- Check the campaign via `GET /subscriptions/campaign/:id` — `pendingCount` stuck above zero usually means the worker is not running
 - With Resend's test sender (`onboarding@resend.dev`), emails can only be sent to verified addresses until you add your own domain
-- Check server logs for `Failed to notify` or `Email send failed` messages
+- Check API logs for `Failed to start email campaign` and worker logs for `Batch X completed` or `permanently failed`
+
+**`REDIS_URL is not configured` on product create or worker start**
+
+- Add `REDIS_URL` to `.env` (not `.env.local` — the app loads `.env` via `dotenv`)
+- Use your Upstash Redis URL, e.g. `rediss://default:<password>@<host>:6379`
 
 ---
 
