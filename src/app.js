@@ -1,3 +1,7 @@
+// For accessing environment variables from .env file
+const dotenv = require("dotenv");
+dotenv.config();
+
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
@@ -5,11 +9,9 @@ const errorHandler = require("./middleware/errorHandler");
 const productRoutes = require("./domains/products/route");
 const userRoutes = require("./domains/users/route");
 const orderRoutes = require("./domains/orders/route");
+const subscriptionRoutes = require("./domains/subscriptions/route");
 const cookieParser = require("cookie-parser");
 
-// For accessing environment variables from .env file
-const dotenv = require("dotenv");
-dotenv.config();
 const baseUrl =
   process.env.NODE_ENV === "production"
     ? process.env.PROD_URL
@@ -22,7 +24,7 @@ app.use(cookieParser());
 
 // HTTP request logger middleware for node.js
 app.use(
-  morgan(":method :url :status :res[content-length] - :response-time ms")
+  morgan(":method :url :status :res[content-length] - :response-time ms"),
 );
 
 // Handling CORS issue
@@ -32,6 +34,7 @@ app.use(cors());
 app.use("/products", productRoutes);
 app.use("/users", userRoutes);
 app.use("/orders", orderRoutes);
+app.use("/subscriptions", subscriptionRoutes);
 
 app.get("", (req, res) => {
   res.send("hello");
